@@ -11,9 +11,23 @@ namespace ExemploAuth.Models
         {
             this.OrderItems = new HashSet<OrderItem>();
         }
+
         public int Id { get; set; }
+
         public string userName { get; set; }
-        public decimal precoFrete { get; set; }
+
+        public DateTime DataPedido { get; set; }
+
+        public DateTime DataEntrega { get; set; }
+
+        public string Status { get; set; }
+
+        public decimal PrecoTotal { get; set; }
+
+        public decimal PesoTotal { get; set; }
+
+        public decimal PrecoFrete { get; set; }
+
         public virtual ICollection<OrderItem> OrderItems { get; set; }
     }
 }
