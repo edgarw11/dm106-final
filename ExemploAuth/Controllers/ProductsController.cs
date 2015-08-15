@@ -127,6 +127,23 @@ namespace ExemploAuth.Controllers
                 return BadRequest(ModelState);
             }
 
+            //Não deverá permitir a inclusão de um produto  com  o  
+            //código  e/ou  o  modelo  com  um  valor  que  já  exista  na tabela
+            var productsCode = db.Products.Where(p => (p.codigo == product.codigo || p.modelo == product.modelo));
+            List<Product> productsRes = productsCode.ToList();
+            if (productsRes.Count > 0)
+            {
+                foreach (Product prod in productsRes)
+                {
+                    if (prod.codigo == product.codigo)
+                        return BadRequest("Erro: O codigo informado já existe: " + product.codigo);
+                    else if (prod.modelo == product.modelo)
+                        return BadRequest("Erro: O modelo informado já existe: " + product.modelo);
+
+                }
+
+            }
+
             db.Products.Add(product);
             db.SaveChanges();
 
