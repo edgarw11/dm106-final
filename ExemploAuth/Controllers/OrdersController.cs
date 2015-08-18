@@ -13,6 +13,7 @@ using System.Web.Http.Description;
 
 namespace ExemploAuth.Controllers
 {
+    [Authorize]
     [RoutePrefix("api/orders")]
     public class OrdersController : ApiController
     {
@@ -24,41 +25,92 @@ namespace ExemploAuth.Controllers
         [Route("byname")]
         public IHttpActionResult GetOrdersByName(string name)
         {
+            bool authorized = false;
             List<Order> orders = db.Orders.Where(p => p.userName == name).ToList();
-            if (orders == null)
+
+            Trace.TraceInformation("Nome do usuário: " + User.Identity.Name);
+            if (orders.Count() == 0)
             {
-                return NotFound();
+                Trace.TraceInformation("Nenhum pedido foi encontrado para o usuário: " + name);
+                return BadRequest("Nenhum pedido foi encontrado para o usuário: " + name);
+            }
+            else
+            {
+                if (User.IsInRole("ADMIN"))
+                {
+                    Trace.TraceInformation("Usuário com papel ADMIN");
+                    authorized = true;
+
+                }
+                if (User.Identity.Name.Equals(orders.First().userName))
+                {
+                    Trace.TraceInformation("Usuário dono do pedido.");
+                    authorized = true;
+                }
+
             }
 
-            return Ok(orders);
+            if (authorized)
+            {
+                return Ok(orders);
+            }
+            else
+            {
+                Trace.TraceInformation("Usuário não autorizado");
+                return BadRequest("Usuário não autorizado");
+            }
         }
 
         // GET: api/Orders
         //public IQueryable<Order> GetOrders()
+        [Authorize(Roles = "ADMIN")]
         public List<Order> GetOrders()
         {
             Trace.TraceInformation("INFO - GetOrders");
-            //List<Order> orderList = db.Orders.ToList<Order>();
-            
-            //Trace.TraceInformation("db.Orders.count: " + orderList.Count());
-            //Trace.TraceInformation("db.Orders.id: " + orderList.GetEnumerator().Current.Id);
-            //orderList.GetEnumerator().MoveNext();
-            
+                        
             //return db.Orders;
             return db.Orders.Include(order => order.OrderItems).ToList();
         }
 
         // GET: api/Orders/5
+        // TODO: Essa operação poderá ser acessível somente pelo administrador ou pelo usuário que é dono do pedido
         [ResponseType(typeof(Order))]
         public IHttpActionResult GetOrder(int id)
         {
+            bool authorized = false;
             Order order = db.Orders.Find(id);
+
+            Trace.TraceInformation("Nome do usuário: " + User.Identity.Name);
             if (order == null)
             {
-                return NotFound();
+                Trace.TraceInformation("Pedido não encontrado.");
+                return BadRequest("Pedido não encontrado.");
             }
+            else
+            {
+                if (User.IsInRole("ADMIN"))
+                {
+                        Trace.TraceInformation("Usuário com papel ADMIN");
+                        authorized = true;
 
-            return Ok(order);
+                }
+                if (User.Identity.Name.Equals(order.userName))
+                {
+                    Trace.TraceInformation("Usuário dono do pedido.");
+                    authorized = true;
+                }
+
+            }
+            
+            if (authorized)
+            {                
+                return Ok(order);
+            }
+            else
+            {
+                Trace.TraceInformation("Usuário não autorizado");
+                return BadRequest("Usuário não autorizado");
+            }
         }
 
         // PUT: api/Orders/5
@@ -104,6 +156,13 @@ namespace ExemploAuth.Controllers
             {
                 return BadRequest(ModelState);
             }
+
+            order.Status = "Novo";
+            order.PesoTotal = 0;
+            order.PrecoFrete = 0;
+            order.PrecoTotal = 0;
+            order.DataPedido = DateTime.Now;
+            order.DataEntrega = DateTime.Now;
 
             db.Orders.Add(order);
             db.SaveChanges();
