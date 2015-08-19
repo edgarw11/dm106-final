@@ -19,6 +19,73 @@ namespace ExemploAuth.Controllers
     {
         private ExemploAuthContext db = new ExemploAuthContext();
 
+        public const string Novo = "Novo";
+        public const string Fechado = "Fechado";
+
+        // GET: api/orders/getfrete?id={id}
+        [ResponseType(typeof(Order))]
+        [HttpGet]
+        [Route("getfrete")]
+        public IHttpActionResult GetFrete(int id)
+        {
+            // TODO: implement this method
+            return Ok();
+        }
+
+        // GET: api/orders/closeorder?id={id}
+        [ResponseType(typeof(Order))]
+        [HttpGet]
+        [Route("closeorder")]
+        public IHttpActionResult CloseOrder(int id)
+        {
+            Trace.TraceInformation("Nome do usuário: " + User.Identity.Name);
+            
+            bool authorized = false;
+
+            Order order = db.Orders.Find(id);
+
+            if (order == null)
+            {
+                Trace.TraceInformation("Pedido não encontrado.");
+                return BadRequest("Pedido não encontrado.");
+            }
+            else
+            {
+                if (User.IsInRole("ADMIN"))
+                {
+                    Trace.TraceInformation("Usuário com papel ADMIN");
+                    authorized = true;
+
+                }
+                if (User.Identity.Name.Equals(order.userName))
+                {
+                    Trace.TraceInformation("Usuário dono do pedido.");
+                    authorized = true;
+                }
+
+            }
+
+            if (authorized)
+            {
+                if (order.PrecoFrete == 0)
+                {
+                    Trace.TraceInformation("Erro - O frete deve ser calculado antes de fechar o pedido.");
+                    return BadRequest("Erro - O frete deve ser calculado antes de fechar o pedido.");
+                }
+                else
+                {
+                    order.Status = Fechado;
+                    return UpdatedOrder(id, order);
+                }
+            }
+            else
+            {
+                Trace.TraceInformation("Usuário não autorizado");
+                return BadRequest("Usuário não autorizado");
+            }
+           
+        }
+
         // GET: api/Orders/byname?name={name}
         [ResponseType(typeof(Order))]
         [HttpGet]
@@ -73,7 +140,6 @@ namespace ExemploAuth.Controllers
         }
 
         // GET: api/Orders/5
-        // TODO: Essa operação poderá ser acessível somente pelo administrador ou pelo usuário que é dono do pedido
         [ResponseType(typeof(Order))]
         public IHttpActionResult GetOrder(int id)
         {
@@ -127,6 +193,11 @@ namespace ExemploAuth.Controllers
                 return BadRequest();
             }
 
+            return UpdatedOrder(id, order);
+        }
+
+        private IHttpActionResult UpdatedOrder(int id, Order order)
+        {
             db.Entry(order).State = EntityState.Modified;
 
             try
@@ -145,19 +216,25 @@ namespace ExemploAuth.Controllers
                 }
             }
 
-            return StatusCode(HttpStatusCode.NoContent);
+            Order orderUpdated = db.Orders.Find(id);
+
+            return Ok(orderUpdated);
         }
 
         // POST: api/Orders
         [ResponseType(typeof(Order))]
         public IHttpActionResult PostOrder(Order order)
         {
+            if (order == null)
+            {
+                return BadRequest("O pedido está vazio.");
+            }
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            order.Status = "Novo";
+            order.Status = Novo;
             order.PesoTotal = 0;
             order.PrecoFrete = 0;
             order.PrecoTotal = 0;
@@ -174,16 +251,44 @@ namespace ExemploAuth.Controllers
         [ResponseType(typeof(Order))]
         public IHttpActionResult DeleteOrder(int id)
         {
+            bool authorized = false;
+
             Order order = db.Orders.Find(id);
+
             if (order == null)
             {
-                return NotFound();
+                Trace.TraceInformation("Pedido não encontrado.");
+                return BadRequest("Pedido não encontrado.");
+            }
+            else
+            {
+                if (User.IsInRole("ADMIN"))
+                {
+                    Trace.TraceInformation("Usuário com papel ADMIN");
+                    authorized = true;
+
+                }
+                if (User.Identity.Name.Equals(order.userName))
+                {
+                    Trace.TraceInformation("Usuário dono do pedido.");
+                    authorized = true;
+                }
+
             }
 
-            db.Orders.Remove(order);
-            db.SaveChanges();
+            if (authorized)
+            {
+                db.Orders.Remove(order);
+                db.SaveChanges();
 
-            return Ok(order);
+                return Ok(order);                
+            }
+            else
+            {
+                Trace.TraceInformation("Usuário não autorizado");
+                return BadRequest("Usuário não autorizado");
+            }
+
         }
 
         protected override void Dispose(bool disposing)
