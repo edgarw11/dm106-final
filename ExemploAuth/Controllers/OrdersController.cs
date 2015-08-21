@@ -40,7 +40,6 @@ namespace ExemploAuth.Controllers
         {
             Trace.TraceInformation("Nome do usuário: " + User.Identity.Name);
             
-            bool authorized = false;
 
             Order order = db.Orders.Find(id);
 
@@ -49,23 +48,8 @@ namespace ExemploAuth.Controllers
                 Trace.TraceInformation("Pedido não encontrado.");
                 return BadRequest("Pedido não encontrado.");
             }
-            else
-            {
-                if (User.IsInRole("ADMIN"))
-                {
-                    Trace.TraceInformation("Usuário com papel ADMIN");
-                    authorized = true;
 
-                }
-                if (User.Identity.Name.Equals(order.userName))
-                {
-                    Trace.TraceInformation("Usuário dono do pedido.");
-                    authorized = true;
-                }
-
-            }
-
-            if (authorized)
+            if (IsAuthorized(order))
             {
                 if (order.PrecoFrete == 0)
                 {
@@ -85,14 +69,13 @@ namespace ExemploAuth.Controllers
             }
            
         }
-
+        
         // GET: api/Orders/byname?name={name}
         [ResponseType(typeof(Order))]
         [HttpGet]
         [Route("byname")]
         public IHttpActionResult GetOrdersByName(string name)
-        {
-            bool authorized = false;
+        {           
             List<Order> orders = db.Orders.Where(p => p.userName == name).ToList();
 
             Trace.TraceInformation("Nome do usuário: " + User.Identity.Name);
@@ -101,23 +84,8 @@ namespace ExemploAuth.Controllers
                 Trace.TraceInformation("Nenhum pedido foi encontrado para o usuário: " + name);
                 return BadRequest("Nenhum pedido foi encontrado para o usuário: " + name);
             }
-            else
-            {
-                if (User.IsInRole("ADMIN"))
-                {
-                    Trace.TraceInformation("Usuário com papel ADMIN");
-                    authorized = true;
-
-                }
-                if (User.Identity.Name.Equals(orders.First().userName))
-                {
-                    Trace.TraceInformation("Usuário dono do pedido.");
-                    authorized = true;
-                }
-
-            }
-
-            if (authorized)
+           
+            if (IsAuthorized(orders.First()))
             {
                 return Ok(orders);
             }
@@ -142,8 +110,7 @@ namespace ExemploAuth.Controllers
         // GET: api/Orders/5
         [ResponseType(typeof(Order))]
         public IHttpActionResult GetOrder(int id)
-        {
-            bool authorized = false;
+        {           
             Order order = db.Orders.Find(id);
 
             Trace.TraceInformation("Nome do usuário: " + User.Identity.Name);
@@ -152,23 +119,8 @@ namespace ExemploAuth.Controllers
                 Trace.TraceInformation("Pedido não encontrado.");
                 return BadRequest("Pedido não encontrado.");
             }
-            else
-            {
-                if (User.IsInRole("ADMIN"))
-                {
-                        Trace.TraceInformation("Usuário com papel ADMIN");
-                        authorized = true;
-
-                }
-                if (User.Identity.Name.Equals(order.userName))
-                {
-                    Trace.TraceInformation("Usuário dono do pedido.");
-                    authorized = true;
-                }
-
-            }
-            
-            if (authorized)
+                        
+            if (IsAuthorized(order))
             {                
                 return Ok(order);
             }
@@ -195,32 +147,7 @@ namespace ExemploAuth.Controllers
 
             return UpdatedOrder(id, order);
         }
-
-        private IHttpActionResult UpdatedOrder(int id, Order order)
-        {
-            db.Entry(order).State = EntityState.Modified;
-
-            try
-            {
-                db.SaveChanges();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!OrderExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
-            Order orderUpdated = db.Orders.Find(id);
-
-            return Ok(orderUpdated);
-        }
-
+        
         // POST: api/Orders
         [ResponseType(typeof(Order))]
         public IHttpActionResult PostOrder(Order order)
@@ -250,9 +177,7 @@ namespace ExemploAuth.Controllers
         // DELETE: api/Orders/5
         [ResponseType(typeof(Order))]
         public IHttpActionResult DeleteOrder(int id)
-        {
-            bool authorized = false;
-
+        {            
             Order order = db.Orders.Find(id);
 
             if (order == null)
@@ -260,23 +185,8 @@ namespace ExemploAuth.Controllers
                 Trace.TraceInformation("Pedido não encontrado.");
                 return BadRequest("Pedido não encontrado.");
             }
-            else
-            {
-                if (User.IsInRole("ADMIN"))
-                {
-                    Trace.TraceInformation("Usuário com papel ADMIN");
-                    authorized = true;
 
-                }
-                if (User.Identity.Name.Equals(order.userName))
-                {
-                    Trace.TraceInformation("Usuário dono do pedido.");
-                    authorized = true;
-                }
-
-            }
-
-            if (authorized)
+            if (IsAuthorized(order))
             {
                 db.Orders.Remove(order);
                 db.SaveChanges();
@@ -303,6 +213,48 @@ namespace ExemploAuth.Controllers
         private bool OrderExists(int id)
         {
             return db.Orders.Count(e => e.Id == id) > 0;
+        }
+
+        private bool IsAuthorized(Order order)
+        {
+            bool isAuthorized = false;
+            if (User.IsInRole("ADMIN"))
+            {
+                Trace.TraceInformation("Usuário com papel ADMIN");
+                isAuthorized = true;
+
+            }
+            if (User.Identity.Name.Equals(order.userName))
+            {
+                Trace.TraceInformation("Usuário dono do pedido.");
+                isAuthorized = true;
+            }
+            return isAuthorized;
+        }
+
+        private IHttpActionResult UpdatedOrder(int id, Order order)
+        {
+            db.Entry(order).State = EntityState.Modified;
+
+            try
+            {
+                db.SaveChanges();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!OrderExists(id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            Order orderUpdated = db.Orders.Find(id);
+
+            return Ok(orderUpdated);
         }
     }
 }
