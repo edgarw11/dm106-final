@@ -1,4 +1,5 @@
-﻿using ExemploAuth.Models;
+﻿using ExemploAuth.CRMClient;
+using ExemploAuth.Models;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -23,13 +24,51 @@ namespace ExemploAuth.Controllers
         public const string Fechado = "Fechado";
 
         // GET: api/orders/getfrete?id={id}
-        [ResponseType(typeof(Order))]
+        [ResponseType(typeof(Customer))]
         [HttpGet]
         [Route("getfrete")]
         public IHttpActionResult GetFrete(int id)
         {
-            // TODO: implement this method
-            return Ok();
+            Order order = db.Orders.Find(id);
+
+            Trace.TraceInformation("Nome do usuário: " + User.Identity.Name);
+            if (order == null)
+            {
+                Trace.TraceInformation("Pedido não encontrado.");
+                return BadRequest("Pedido não encontrado.");
+            }
+
+            if (IsAuthorized(order))
+            {
+                CRMRestClient crmClient = new CRMRestClient();
+                Customer customer = crmClient.GetCustomerByEmail("inatel_mobile@inatel.br");
+
+                decimal precoFrete = 0; //TODO: SET THE PRICE CALCULATED
+                DateTime dataEntrega = DateTime.Now;// TODO: SET THE DATE CALCULATED
+                decimal pesoTotal = 0; //TODO: SUM UP ALL PRODUCTS * QUANTITY FROM ORDER
+                decimal precoTotal = precoFrete + (order.OrderItems.First().Product.preco); //TODO: SUM UP ALL PRODUCTS PRICE * QUANTITY FROM ORDER
+
+                getFreteAndDate(customer, order);
+
+                // UPDATE THE ORDER
+                order.PrecoFrete = precoFrete;
+                order.DataEntrega = dataEntrega;
+                order.PesoTotal = pesoTotal;
+                order.PrecoTotal = precoTotal;
+                
+                return Ok(UpdatedOrder(id, order)); //Return the order updated
+            }
+            else
+            {
+                Trace.TraceInformation("Usuário não autorizado");
+                return BadRequest("Usuário não autorizado");
+            }
+        }
+
+        //TODO: Call the correios ws
+        private void getFreteAndDate(Customer customer, Order order)
+        {
+
         }
 
         // GET: api/orders/closeorder?id={id}
@@ -40,7 +79,6 @@ namespace ExemploAuth.Controllers
         {
             Trace.TraceInformation("Nome do usuário: " + User.Identity.Name);
             
-
             Order order = db.Orders.Find(id);
 
             if (order == null)
