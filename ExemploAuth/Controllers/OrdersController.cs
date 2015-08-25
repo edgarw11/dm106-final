@@ -41,14 +41,34 @@ namespace ExemploAuth.Controllers
             if (IsAuthorized(order))
             {
                 CRMRestClient crmClient = new CRMRestClient();
-                Customer customer = crmClient.GetCustomerByEmail("inatel_mobile@inatel.br");
+                Customer customer = crmClient.GetCustomerByEmail(order.userName);
+
+                decimal maiorLargura = 0;
+                decimal maiorComprimento = 0;
+                decimal alturaTotal = 0;
+                decimal diametroTotal = 0;
+                decimal pesoTotal = 0;
+                decimal precoTotal = 0;
+
+                foreach (OrderItem orderItem in order.OrderItems)
+                {
+                    alturaTotal += (orderItem.Product.altura * orderItem.Quantidade);
+                    pesoTotal += (orderItem.Product.peso * orderItem.Quantidade);
+                    precoTotal += (orderItem.Product.preco * orderItem.Quantidade);
+                    diametroTotal += (orderItem.Product.diametro * orderItem.Quantidade);
+
+                    if (orderItem.Product.largura > maiorLargura)
+                        maiorLargura = orderItem.Product.largura;
+                    if (orderItem.Product.comprimento > maiorComprimento)
+                        maiorComprimento = orderItem.Product.comprimento;
+                    
+                }
+
+                getFreteAndDate(customer, order);
 
                 decimal precoFrete = 0; //TODO: SET THE PRICE CALCULATED
                 DateTime dataEntrega = DateTime.Now;// TODO: SET THE DATE CALCULATED
-                decimal pesoTotal = 0; //TODO: SUM UP ALL PRODUCTS * QUANTITY FROM ORDER
-                decimal precoTotal = precoFrete + (order.OrderItems.First().Product.preco); //TODO: SUM UP ALL PRODUCTS PRICE * QUANTITY FROM ORDER
-
-                getFreteAndDate(customer, order);
+                precoTotal += precoFrete;
 
                 // UPDATE THE ORDER
                 order.PrecoFrete = precoFrete;
