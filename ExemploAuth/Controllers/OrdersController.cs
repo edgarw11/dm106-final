@@ -1,4 +1,5 @@
-﻿using ExemploAuth.CRMClient;
+﻿using ExemploAuth.br.com.correios.ws;
+using ExemploAuth.CRMClient;
 using ExemploAuth.Models;
 using System;
 using System.Collections.Generic;
@@ -30,6 +31,8 @@ namespace ExemploAuth.Controllers
         public IHttpActionResult GetFrete(int id)
         {
             Order order = db.Orders.Find(id);
+            Customer customer = null;
+            cResultado result = null;
 
             Trace.TraceInformation("Nome do usuário: " + User.Identity.Name);
             if (order == null)
@@ -40,8 +43,32 @@ namespace ExemploAuth.Controllers
 
             if (IsAuthorized(order))
             {
-                CRMRestClient crmClient = new CRMRestClient();
-                Customer customer = crmClient.GetCustomerByEmail(order.userName);
+                if (order.OrderItems.Count == 0)
+                {
+                    return BadRequest("Erro - Pedido sem itens.");
+                }
+
+                if (!order.Status.Equals(Novo))
+                {
+                    return BadRequest("Pedido com status diferente de “novo”.");
+                }
+
+                try
+                {                    
+                    CRMRestClient crmClient = new CRMRestClient();
+                    customer = crmClient.GetCustomerByEmail(order.userName);
+                }
+                catch (Exception e)
+                {
+                    Trace.TraceError(e.StackTrace);
+                    return BadRequest("Não foi possível acessar o serviço de CRM. Por favor tente novamente mais tarde.");
+                }
+
+                if (customer == null)
+                {
+                    Trace.TraceInformation("Erro - Não foi possível localizar cadastro do usuário.");
+                    return BadRequest("Erro - Não foi possível localizar cadastro do usuário.");
+                }
 
                 decimal maiorLargura = 0;
                 decimal maiorComprimento = 0;
@@ -64,10 +91,25 @@ namespace ExemploAuth.Controllers
                     
                 }
 
-                getFreteAndDate(customer, order);
+                try
+                {
+                    result = getFreteAndDate(customer.zip, precoTotal, pesoTotal.ToString(), maiorComprimento, alturaTotal, maiorLargura, diametroTotal);                    
+                }
+                catch (Exception e)
+                {
+                    Trace.TraceError(e.StackTrace);
+                    return BadRequest("Não foi possível acessar o serviço dos Correios. Por favor tente novamente mais tarde.");
+                }                
 
-                decimal precoFrete = 0; //TODO: SET THE PRICE CALCULATED
-                DateTime dataEntrega = DateTime.Now;// TODO: SET THE DATE CALCULATED
+                if (!result.Servicos[0].Erro.Equals("0"))
+                {
+                    return BadRequest("Erro ao calcular o frete: " + result.Servicos[0].MsgErro);
+                }
+
+                decimal precoFrete = decimal.Parse(result.Servicos[0].Valor);
+                int prazoEnt = int.Parse(result.Servicos[0].PrazoEntrega);
+                DateTime dataEntrega = DateTime.Now;
+                dataEntrega = dataEntrega.AddDays(prazoEnt);
                 precoTotal += precoFrete;
 
                 // UPDATE THE ORDER
@@ -76,7 +118,7 @@ namespace ExemploAuth.Controllers
                 order.PesoTotal = pesoTotal;
                 order.PrecoTotal = precoTotal;
                 
-                return Ok(UpdatedOrder(id, order)); //Return the order updated
+                return UpdatedOrder(id, order); //Return the order updated
             }
             else
             {
@@ -85,12 +127,41 @@ namespace ExemploAuth.Controllers
             }
         }
 
-        //TODO: Call the correios ws
-        private void getFreteAndDate(Customer customer, Order order)
+        private cResultado getFreteAndDate(string sCepDestino, decimal nVlValorDeclarado, string nVlPeso, decimal nVlComprimento, decimal nVlAltura, decimal nVlLargura, decimal nVlDiametro)
         {
+            Trace.TraceInformation("getFreteAndDate: - sCepDestino: " + sCepDestino + " - nVlValorDeclarado: " + nVlValorDeclarado + " - nVlPeso: " + nVlPeso
+                + " - nVlComprimento: " + nVlComprimento + " - nVlAltura: " + nVlAltura + " - nVlLargura: " + nVlLargura + " - nVlDiametro: " + nVlDiametro);
+            string SEDEXVarejo = "40010";
+            //string SEDEXaCobrarVarejo = "40045";
+            //string SEDEX10Varejo = "40215";
+            //string SEDEXHojeVarejo = "40290";
+            //string PACVarejo = "41106";
 
+            //1 – Formato caixa/pacote - 2 – Formato rolo/prisma - 3 - Envelope
+            int nCdFormato = 1;
+
+            string sCepOrigem = "20081902";// 20081-902 Submariono RJ
+            CalcPrecoPrazoWS correios = new CalcPrecoPrazoWS();
+
+            cResultado resultado = correios.CalcPrecoPrazo("", "", SEDEXVarejo, sCepOrigem,
+            sCepDestino, nVlPeso, nCdFormato, nVlComprimento, nVlAltura, nVlLargura,
+            nVlDiametro, "N", nVlValorDeclarado, "N");
+
+            if (resultado.Servicos[0].Erro.Equals("0"))
+            {
+                Trace.TraceInformation("Valor do frete: " + resultado.Servicos[0].Valor);
+                Trace.TraceInformation("Prazo de entrega: " + resultado.Servicos[0].PrazoEntrega);
+
+            }
+            else
+            {
+                Trace.TraceInformation("Erro ao calcular o frete: " + resultado.Servicos[0].Erro);
+                Trace.TraceInformation("Detalhes do erro: " + resultado.Servicos[0].MsgErro);
+            }
+
+            return resultado;
         }
-
+               
         // GET: api/orders/closeorder?id={id}
         [ResponseType(typeof(Order))]
         [HttpGet]
