@@ -110,7 +110,13 @@ namespace ExemploAuth.Controllers
                 int prazoEnt = int.Parse(result.Servicos[0].PrazoEntrega);
                 DateTime dataEntrega = DateTime.Now;
                 dataEntrega = dataEntrega.AddDays(prazoEnt);
+
+                Trace.TraceInformation("Preco dos produtos: " + precoTotal);
+                Trace.TraceInformation("Preco do frete: " + precoFrete);
+
                 precoTotal += precoFrete;
+
+                Trace.TraceInformation("Preco total: " + precoTotal);
 
                 // UPDATE THE ORDER
                 order.PrecoFrete = precoFrete;
