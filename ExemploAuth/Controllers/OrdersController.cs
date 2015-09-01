@@ -7,6 +7,7 @@ using System.Data;
 using System.Data.Entity;
 using System.Data.Entity.Infrastructure;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -106,8 +107,14 @@ namespace ExemploAuth.Controllers
                     return BadRequest("Erro ao calcular o frete: " + result.Servicos[0].MsgErro);
                 }
 
-                decimal precoFrete = decimal.Parse(result.Servicos[0].Valor);
+
+                // Gets a NumberFormatInfo associated with the en-US culture.
+                NumberFormatInfo nfi = new CultureInfo("pt-BR", false).NumberFormat;
+                
+                decimal precoFrete = decimal.Parse(result.Servicos[0].Valor, nfi);
+                
                 int prazoEnt = int.Parse(result.Servicos[0].PrazoEntrega);
+                
                 DateTime dataEntrega = DateTime.Now;
                 dataEntrega = dataEntrega.AddDays(prazoEnt);
 
