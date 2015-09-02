@@ -302,7 +302,13 @@ namespace ExemploAuth.Controllers
             {
                 return BadRequest(ModelState);
             }
-
+            foreach (OrderItem item in order.OrderItems)
+            {
+                if (item.Quantidade <= 0)
+                {
+                    return BadRequest("Um ou mais produtos não contém uma quantidade válida.");
+                }
+            }
             order.Status = Novo;
             order.PesoTotal = 0;
             order.PrecoFrete = 0;
